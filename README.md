@@ -1,6 +1,6 @@
 # Engg Standards (ESTD)
 
-ESTD documents are the authoritative engineering standards for the Bingo Bash team. They define best practices, conventions, and guidelines across all disciplines — client, server, cloud, tooling, and process — to ensure consistent, maintainable, and high-quality software across the organization. All engineers are expected to read and adhere to the standards relevant to their role.
+ESTD documents are the authoritative engineering standards for the Bingo team. They define best practices, conventions, and guidelines across all disciplines — client, server, cloud, tooling, and process — to ensure consistent, maintainable, and high-quality software across the organization. All engineers are expected to read and adhere to the standards relevant to their role.
 
 ## Documents
 
