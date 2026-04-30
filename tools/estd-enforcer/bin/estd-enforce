@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -euo pipefail
+
+##############################################################################
+# Script: estd-enforce
+# Purpose: Run the opt-in ESTD LLM standards validator for a Bingo repository.
+#
+# Usage:
+#   estd-enforce validate --repo <repo> --base <git_ref> --config <file> --out <dir>
+#
+# Parameters:
+#   validate          - Run route selection, LLM validation, and gate evaluation
+#   --repo <repo>     - Consumer repository root (default: current directory)
+#   --base <git_ref>  - Base ref for changed-file scope (default: origin/main)
+#   --config <file>   - Consumer config file (default: .estd/config.yaml)
+#   --out <dir>       - Output directory for report artifacts (default: build/estd)
+#
+# Return Codes:
+#   0 - Gate passed or repo is not opted in
+#   1 - Standards gate failed
+#   2 - Configuration, LLM, schema, or retrieval error
+#
+# Description:
+#   Thin executable wrapper. Implementation lives in lib/estd_enforce.py so JSON,
+#   date, and report validation stay maintainable without shell parsing tricks.
+##############################################################################
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly ENFORCER_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+exec python3 "${ENFORCER_ROOT}/lib/estd_enforce.py" "$@"

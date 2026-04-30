@@ -1,0 +1,11 @@
+version: 2
+standardsPath: standards/bingo-bash-standards
+profile: auto
+mode: blocking
+scope: changed-files
+minScore: 75
+failOnCritical: true
+validationStrategy: static-first
+llmPolicy: gaps-only
+requiredStaticTools: []
+exceptionsFile: .estd/exceptions.yaml

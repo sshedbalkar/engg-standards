@@ -1,0 +1,16 @@
+.classpath
+.factorypath
+.project
+.settings/
+target/
+confluence/
+prompts/
+scripts/*.md
+scripts/test-*.*
+.DS_Store
+CLAUDE.md
+*.bak
+bak/
+!/**/README.md
+!/**/LLM*.md
+/**/__pycache__/

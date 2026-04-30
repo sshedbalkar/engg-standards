@@ -1,0 +1,39 @@
+# Publishes markdown docs from this repo to Confluence on push to main or docs/* branches.
+# Required environment variables and secrets:
+
+name: deploy-docs
+on:
+  # Triggers the workflow on push or pull request events but only for the default branch
+  push:
+    branches: [ main, docs/* ]
+  workflow_dispatch:
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          python -m pip install requests markdown beautifulsoup4 atlassian-python-api
+      - name: Detect changed files
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "files=" >> $GITHUB_OUTPUT
+          else
+            BASE=${{ github.event.before }}
+            HEAD=${{ github.sha }}
+            FILES=$(git diff --name-only "$BASE" "$HEAD" | tr '\n' ',')
+            echo "files=$FILES" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sync with Confluence
+        env:
+          CONF_USER: ${{ secrets.ATLASSIAN_USERNAME }}
+          CONF_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
+          CHANGED_FILES: ${{ steps.changed.outputs.files }}
+        run: python scripts/deploy_docs_to_confluence.py

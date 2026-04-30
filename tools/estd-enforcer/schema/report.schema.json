@@ -1,0 +1,324 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "ESTD Enforcer Report",
+	"type": "object",
+	"additionalProperties": true,
+	"required": [
+		"schemaVersion",
+		"status",
+		"score",
+		"routes",
+		"findings",
+		"staticResults",
+		"llmResults",
+		"validatorGroups",
+		"llmInvoked"
+	],
+	"properties": {
+		"schemaVersion": {
+			"const": 2
+		},
+		"tool": {
+			"type": "string"
+		},
+		"status": {
+			"enum": [
+				"pass",
+				"fail",
+				"error"
+			]
+		},
+		"score": {
+			"type": "number",
+			"minimum": 0,
+			"maximum": 100
+		},
+		"criticalBlockers": {
+			"type": "integer",
+			"minimum": 0
+		},
+		"unknownEvidence": {
+			"type": "boolean"
+		},
+		"llmInvoked": {
+			"type": "boolean"
+		},
+		"routes": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/routeResult"
+			}
+		},
+		"validatorGroups": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/validatorGroup"
+			}
+		},
+		"staticResults": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/staticResult"
+			}
+		},
+		"llmResults": {
+			"type": "object",
+			"additionalProperties": true
+		},
+		"findings": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/finding"
+			}
+		},
+		"exceptions": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/exceptionResult"
+			}
+		},
+		"toolErrors": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		}
+	},
+	"$defs": {
+		"routeResult": {
+			"type": "object",
+			"additionalProperties": true,
+			"required": [
+				"routeId",
+				"validatorId",
+				"score",
+				"status"
+			],
+			"properties": {
+				"routeId": {
+					"pattern": "^route\\.[a-z0-9-]+$"
+				},
+				"validatorId": {
+					"pattern": "^validator\\.[a-z0-9-]+$"
+				},
+				"score": {
+					"type": "number",
+					"minimum": 0,
+					"maximum": 100
+				},
+				"status": {
+					"enum": [
+						"pass",
+						"fail",
+						"not-applicable"
+					]
+				},
+				"unknownEvidence": {
+					"type": "boolean"
+				}
+			}
+		},
+		"validatorGroup": {
+			"type": "object",
+			"additionalProperties": true,
+			"required": [
+				"routeId",
+				"validatorId",
+				"group",
+				"coverageSource",
+				"status"
+			],
+			"properties": {
+				"routeId": {
+					"pattern": "^route\\.[a-z0-9-]+$"
+				},
+				"validatorId": {
+					"pattern": "^validator\\.[a-z0-9-]+$"
+				},
+				"group": {
+					"type": "string"
+				},
+				"coverageSource": {
+					"enum": [
+						"static",
+						"llm",
+						"mixed",
+						"not-applicable"
+					]
+				},
+				"status": {
+					"enum": [
+						"pass",
+						"fail",
+						"unresolved",
+						"not-applicable"
+					]
+				},
+				"staticCheckIds": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"llmGap": {
+					"type": "string"
+				}
+			}
+		},
+		"staticResult": {
+			"type": "object",
+			"additionalProperties": true,
+			"required": [
+				"checkId",
+				"status",
+				"findings"
+			],
+			"properties": {
+				"checkId": {
+					"pattern": "^static\\.[a-z0-9.-]+$"
+				},
+				"routeId": {
+					"pattern": "^route\\.[a-z0-9-]+$"
+				},
+				"validatorId": {
+					"pattern": "^validator\\.[a-z0-9-]+$"
+				},
+				"status": {
+					"enum": [
+						"pass",
+						"fail",
+						"skipped",
+						"error",
+						"not-applicable"
+					]
+				},
+				"severity": {
+					"enum": [
+						"critical",
+						"high",
+						"medium",
+						"low"
+					]
+				},
+				"message": {
+					"type": "string"
+				},
+				"findings": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/finding"
+					}
+				}
+			}
+		},
+		"finding": {
+			"type": "object",
+			"additionalProperties": true,
+			"required": [
+				"id",
+				"severity",
+				"status",
+				"routeId",
+				"estd",
+				"message",
+				"recommendation",
+				"evidenceStatus"
+			],
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"severity": {
+					"enum": [
+						"critical",
+						"high",
+						"medium",
+						"low"
+					]
+				},
+				"status": {
+					"enum": [
+						"open",
+						"resolved",
+						"exception-approved"
+					]
+				},
+				"routeId": {
+					"pattern": "^route\\.[a-z0-9-]+$"
+				},
+				"estd": {
+					"$ref": "#/$defs/estdCitation"
+				},
+				"file": {
+					"type": "string"
+				},
+				"line": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"message": {
+					"type": "string"
+				},
+				"recommendation": {
+					"type": "string"
+				},
+				"evidenceStatus": {
+					"enum": [
+						"known",
+						"unknown"
+					]
+				},
+				"source": {
+					"enum": [
+						"static",
+						"llm"
+					]
+				}
+			}
+		},
+		"estdCitation": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"docId",
+				"section",
+				"title",
+				"path"
+			],
+			"properties": {
+				"docId": {
+					"pattern": "^ESTD[0-9]+$"
+				},
+				"section": {
+					"type": "string",
+					"minLength": 1
+				},
+				"title": {
+					"type": "string"
+				},
+				"path": {
+					"pattern": "^docs/ESTD[0-9]+_-.*\\.md$"
+				}
+			}
+		},
+		"exceptionResult": {
+			"type": "object",
+			"additionalProperties": true,
+			"required": [
+				"id",
+				"valid"
+			],
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"valid": {
+					"type": "boolean"
+				},
+				"reason": {
+					"type": "string"
+				}
+			}
+		}
+	}
+}

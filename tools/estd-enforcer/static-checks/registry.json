@@ -1,0 +1,235 @@
+{
+	"version": 1,
+	"checks": [
+		{
+			"id": "static.common.config",
+			"kind": "built-in",
+			"routes": ["route.common"],
+			"primaryRoute": "route.common"
+		},
+		{
+			"id": "static.common.route-coverage",
+			"kind": "built-in",
+			"routes": ["route.common"],
+			"primaryRoute": "route.common"
+		},
+		{
+			"id": "static.common.folder-structure",
+			"kind": "built-in",
+			"routes": ["route.common"],
+			"primaryRoute": "route.common"
+		},
+		{
+			"id": "static.common.secrets",
+			"kind": "built-in",
+			"routes": ["route.common"],
+			"primaryRoute": "route.common"
+		},
+		{
+			"id": "static.common.report-consistency",
+			"kind": "built-in",
+			"routes": ["route.common"],
+			"primaryRoute": "route.common"
+		},
+		{
+			"id": "static.web.typescript",
+			"kind": "command",
+			"routes": ["route.web-tools", "route.product-website"],
+			"primaryRoute": "route.web-tools",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD11",
+				"section": "5.1",
+				"title": "Strict TypeScript",
+				"path": "docs/ESTD11_-_Web_Development_and_Deployment_Standards.md"
+			},
+			"command": {
+				"localPath": "node_modules/.bin/tsc",
+				"args": ["--noEmit"],
+				"filePatterns": ["package.json"],
+				"fileSuffixes": [".ts", ".tsx"],
+				"timeoutSeconds": 120
+			}
+		},
+		{
+			"id": "static.web.eslint",
+			"kind": "command",
+			"routes": ["route.web-tools", "route.product-website"],
+			"primaryRoute": "route.web-tools",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD11",
+				"section": "5",
+				"title": "TypeScript and React Standards",
+				"path": "docs/ESTD11_-_Web_Development_and_Deployment_Standards.md"
+			},
+			"command": {
+				"localPath": "node_modules/.bin/eslint",
+				"args": ["."],
+				"filePatterns": ["package.json"],
+				"fileSuffixes": [".ts", ".tsx", ".js", ".jsx"],
+				"timeoutSeconds": 120
+			}
+		},
+		{
+			"id": "static.php.phpstan",
+			"kind": "command",
+			"routes": ["route.php-monolith"],
+			"primaryRoute": "route.php-monolith",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD6",
+				"section": "2",
+				"title": "PHP Version and Configuration",
+				"path": "docs/ESTD6_-_PHP_Programming_Standards.md"
+			},
+			"command": {
+				"localPath": "vendor/bin/phpstan",
+				"args": ["analyse", "--no-progress"],
+				"filePatterns": ["composer.json"],
+				"fileSuffixes": [".php"],
+				"timeoutSeconds": 120
+			}
+		},
+		{
+			"id": "static.java.spotbugs",
+			"kind": "command",
+			"routes": ["route.java-seam-api", "route.smartfox-server"],
+			"primaryRoute": "route.java-seam-api",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD7",
+				"section": "13",
+				"title": "Security-Specific Java Rules",
+				"path": "docs/ESTD7_-_Java_Programming_Standards.md"
+			},
+			"command": {
+				"executable": "mvn",
+				"args": ["-q", "-DskipTests", "spotbugs:check"],
+				"filePatterns": ["pom.xml"],
+				"fileSuffixes": [".java"],
+				"timeoutSeconds": 180
+			}
+		},
+		{
+			"id": "static.unity.roslyn",
+			"kind": "command",
+			"routes": ["route.unity-client"],
+			"primaryRoute": "route.unity-client",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD3",
+				"section": "2",
+				"title": "C# Coding Style",
+				"path": "docs/ESTD3_-_Unity_and_C#_Standards.md"
+			},
+			"command": {
+				"executable": "dotnet",
+				"args": ["build", "--no-restore"],
+				"filePatterns": ["*.csproj"],
+				"fileSuffixes": [".cs"],
+				"timeoutSeconds": 180
+			}
+		},
+		{
+			"id": "static.cloud.terraform-validate",
+			"kind": "command",
+			"routes": ["route.cloud-aws"],
+			"primaryRoute": "route.cloud-aws",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD8",
+				"section": "2.2",
+				"title": "Terraform IaC: AWS Organizations",
+				"path": "docs/ESTD8_-_AWS_Standards.md"
+			},
+			"command": {
+				"executable": "terraform",
+				"args": ["validate", "-no-color"],
+				"filePatterns": ["*.tf"],
+				"fileSuffixes": [".tf"],
+				"timeoutSeconds": 120
+			}
+		},
+		{
+			"id": "static.cloud.checkov",
+			"kind": "command",
+			"routes": ["route.cloud-aws"],
+			"primaryRoute": "route.cloud-aws",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD5",
+				"section": "2.7",
+				"title": "IaC Security Vulnerabilities",
+				"path": "docs/ESTD5_-_Cloud_Engg_Standards.md"
+			},
+			"command": {
+				"executable": "checkov",
+				"args": ["-d", ".", "--quiet"],
+				"filePatterns": ["*.tf"],
+				"fileSuffixes": [".tf"],
+				"timeoutSeconds": 180
+			}
+		},
+		{
+			"id": "static.jenkins.jenkinsfile-lint",
+			"kind": "command",
+			"routes": ["route.jenkins-cicd"],
+			"primaryRoute": "route.jenkins-cicd",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD13",
+				"section": "4.2",
+				"title": "Jenkinsfile Location and Source of Truth",
+				"path": "docs/ESTD13_-_Jenkins_CI_CD_Standards.md"
+			},
+			"command": {
+				"executable": "jenkinsfile-runner",
+				"args": ["lint", "Jenkinsfile"],
+				"filePatterns": ["Jenkinsfile"],
+				"fileSuffixes": [".groovy"],
+				"timeoutSeconds": 120
+			}
+		},
+		{
+			"id": "static.common.semgrep",
+			"kind": "command",
+			"routes": ["route.common"],
+			"primaryRoute": "route.common",
+			"severity": "high",
+			"estd": {
+				"docId": "ESTD1",
+				"section": "18.5",
+				"title": "Code Security",
+				"path": "docs/ESTD1_-_Common_Engg_Standards_And_Best_Practices.md"
+			},
+			"command": {
+				"executable": "semgrep",
+				"args": ["--config", ".semgrep.yml", "--error", "."],
+				"filePatterns": [".semgrep.yml"],
+				"fileSuffixes": [".php", ".java", ".cs", ".ts", ".tsx"],
+				"timeoutSeconds": 180
+			}
+		},
+		{
+			"id": "static.common.gitleaks",
+			"kind": "command",
+			"routes": ["route.common"],
+			"primaryRoute": "route.common",
+			"severity": "critical",
+			"estd": {
+				"docId": "ESTD1",
+				"section": "19",
+				"title": "Secrets Management",
+				"path": "docs/ESTD1_-_Common_Engg_Standards_And_Best_Practices.md"
+			},
+			"command": {
+				"executable": "gitleaks",
+				"args": ["detect", "--no-git", "--redact", "--source", "."],
+				"filePatterns": ["*"],
+				"fileSuffixes": [".php", ".java", ".cs", ".ts", ".tsx", ".json", ".yaml", ".yml", ".env"],
+				"timeoutSeconds": 120
+			}
+		}
+	]
+}

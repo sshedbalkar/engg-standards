@@ -1,0 +1,11 @@
+# Security-critical standards are non-exempt. Every approved exception must
+# declare securityCritical: false and expire with a remediation plan.
+- id: ESTD-EX-001
+  estdId: ESTD1
+  section: "30"
+  reason: Legacy path needs a staged remediation.
+  approver: Director of Engineering
+  expiresOn: 2026-12-31
+  remediationPlan: Replace legacy behavior in the next scheduled hardening pass.
+  ticket: JIRA-12345
+  securityCritical: false

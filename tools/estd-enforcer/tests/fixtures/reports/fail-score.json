@@ -1,0 +1,19 @@
+{
+	"schemaVersion": 1,
+	"tool": "estd-enforcer-test",
+	"status": "pass",
+	"score": 75,
+	"criticalBlockers": 0,
+	"unknownEvidence": false,
+	"routes": [
+		{
+			"routeId": "route.web-tools",
+			"validatorId": "validator.web-tools",
+			"score": 75,
+			"status": "pass",
+			"unknownEvidence": false
+		}
+	],
+	"findings": [],
+	"exceptions": []
+}

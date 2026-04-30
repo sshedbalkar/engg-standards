@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"tool": "estd-enforcer-test",
+	"status": "pass",
+	"score": 90,
+	"criticalBlockers": 0,
+	"unknownEvidence": false,
+	"routes": [
+		{
+			"routeId": "route.web-tools",
+			"validatorId": "validator.web-tools",
+			"score": 90,
+			"status": "pass",
+			"unknownEvidence": false
+		}
+	],
+	"findings": [
+		{
+			"id": "ESTD-TEST-001",
+			"severity": "medium",
+			"status": "open",
+			"routeId": "route.web-tools",
+			"estd": {
+				"docId": "ESTD1",
+				"section": "999",
+				"title": "Missing Section",
+				"path": "docs/ESTD1_-_Common_Engg_Standards_And_Best_Practices.md"
+			},
+			"file": "src/example.ts",
+			"line": 1,
+			"message": "This citation should fail validation.",
+			"recommendation": "Use an existing ESTD section.",
+			"evidenceStatus": "known"
+		}
+	],
+	"exceptions": []
+}

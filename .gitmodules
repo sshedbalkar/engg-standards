@@ -1,0 +1,3 @@
+[submodule "hybrid-llm-operating-framework"]
+	path = hybrid-llm-operating-framework
+	url = git@github.com:sshedbalkar/hybrid-llm-operating-framework.git
