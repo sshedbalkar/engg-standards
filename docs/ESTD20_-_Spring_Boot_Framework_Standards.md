@@ -182,17 +182,17 @@ The failure modes that follow are specific and recurring:
 - A `@Transactional` method calling another method on the same bean, so the transaction never starts, and a partial debit is committed without the matching credit.
 - A `double` used for a balance, so a reconciliation run is off by fractions of a currency unit across millions of rows.
 - A retry on a non-idempotent transfer endpoint, so a customer is debited twice.
-- A JPA entity returned straight from a controller, so a password hash or an internal risk score is serialized to the client.
+- A Java Persistence API (JPA) entity returned straight from a controller, so a password hash or an internal risk score is serialized to the client.
 - Open Session In View left at its default, so lazy loading silently succeeds in development and produces N+1 queries under production load.
 - An `@Scheduled` end-of-day job running on all four instances simultaneously, so interest is posted four times.
 
 Every rule in this document exists because one of these classes of failure is expensive, hard to detect, and in a banking context, reportable.
 
-**In scope**: Spring Boot 3.3+ application structure, configuration, DI, REST layer, validation, error handling, Spring Data JPA persistence, transactions, monetary correctness and ledger integrity, concurrency and scheduling, messaging, caching, batch, resilience, observability, testing, dependency and supply-chain management, and performance.
+**In scope**: Spring Boot 3.3+ application structure, configuration, dependency injection (DI), the Representational State Transfer (REST) layer, validation, error handling, Spring Data JPA persistence, transactions, monetary correctness and ledger integrity, concurrency and scheduling, messaging, caching, batch, resilience, observability, testing, dependency and supply-chain management, and performance.
 
-**Out of scope** (covered by [ESTD21](./ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md#estd21---data-protection-security-and-audit-standards-for-spring-boot-banking-services)): authentication, authorization, encryption at rest, masking and tokenization, secrets management, injection defence, audit trail, PCI DSS scope, GDPR/DPDP compliance, and incident response.
+**Out of scope** (covered by [ESTD21](./ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md#estd21---data-protection-security-and-audit-standards-for-spring-boot-banking-services)): authentication, authorization, encryption at rest, masking and tokenization, secrets management, injection defence, audit trail, Payment Card Industry Data Security Standard (PCI DSS) scope, General Data Protection Regulation (GDPR) and Digital Personal Data Protection (DPDP) compliance, and incident response.
 
-**Also out of scope**: infrastructure provisioning, CI/CD pipeline authoring, and network topology. These are owned by the platform team and governed by the client's own infrastructure standards.
+**Also out of scope**: infrastructure provisioning, continuous integration and continuous delivery (CI/CD) pipeline authoring, and network topology. These are owned by the platform team and governed by the client's own infrastructure standards.
 
 ---
 
@@ -202,20 +202,20 @@ Every rule in this document exists because one of these classes of failure is ex
 
 | Component | Version | Notes |
 |:----------|:--------|:------|
-| Java | **21 LTS** | Latest patch release. Records, sealed types, pattern matching, and virtual threads are all available and expected. |
-| Spring Boot | **3.3.x or later** | Jakarta EE 10 namespace (`jakarta.*`, never `javax.*`). |
+| Java | **21 LTS** (Long-Term Support) | Latest patch release. Records, sealed types, pattern matching, and virtual threads are all available and expected. |
+| Spring Boot | **3.3.x or later** | Jakarta Enterprise Edition (EE) 10 namespace (`jakarta.*`, never `javax.*`). |
 | Spring Framework | 6.1+ | Comes with Boot; never pinned independently. |
 | Spring Security | 6.3+ | Comes with Boot. |
-| Build tool | **Maven** | Gradle requires written approval. One build tool across the estate keeps the CI templates, SBOM generation, and vulnerability gates uniform. |
+| Build tool | **Maven** | Gradle requires written approval. One build tool across the estate keeps the CI templates, software bill of materials (SBOM) generation, and vulnerability gates uniform. |
 | Database | **PostgreSQL 15+** | |
 | Migration tool | **Flyway** | |
 | Connection pool | **HikariCP** | Boot default; do not replace. |
 
-Running an unsupported Spring Boot version is a release blocker. The Spring Boot OSS support window is roughly 13 months from a minor release; a service must be on a supported line before that window closes, and the upgrade must be scheduled, not deferred.
+Running an unsupported Spring Boot version is a release blocker. The Spring Boot open-source software (OSS) support window is roughly 13 months from a minor release; a service must be on a supported line before that window closes, and the upgrade must be scheduled, not deferred.
 
 ### 2.2 Version Management via BOM
 
-All Spring dependency versions come from the Spring Boot BOM. Never pin a Spring artifact version by hand — a hand-pinned version diverges from what the BOM tested together, and the resulting incompatibilities surface at runtime, not at build time.
+All Spring dependency versions come from the Spring Boot bill of materials (BOM) — a published set of mutually compatible artifact versions. Never pin a Spring artifact version by hand — a hand-pinned version diverges from what the BOM tested together, and the resulting incompatibilities surface at runtime, not at build time.
 
 ```xml
 <parent>
@@ -252,9 +252,9 @@ All Spring dependency versions come from the Spring Boot BOM. Never pin a Spring
 
 - **Every version is exact.** No version ranges (`[1.0,2.0)`), no `LATEST`, no `RELEASE`. A range means the artifact you tested is not necessarily the artifact you ship.
 - **No `SNAPSHOT` dependencies** in any branch that can be promoted beyond the development environment.
-- **No dependency added without review.** A new third-party library is a permanent liability: it must be maintained, patched, and license-cleared. Adding one requires an explicit note in the PR description stating what it does, why an existing dependency cannot do it, and its license.
+- **No dependency added without review.** A new third-party library is a permanent liability: it must be maintained, patched, and license-cleared. Adding one requires an explicit note in the pull request (PR) description stating what it does, why an existing dependency cannot do it, and its license.
 - **Test dependencies are `test`-scoped.** JUnit, Mockito, AssertJ, Testcontainers, and WireMock must never reach the production artifact.
-- **Prefer the platform.** Before adding a library, check whether Spring Boot, the JDK, or an already-present dependency solves the problem.
+- **Prefer the platform.** Before adding a library, check whether Spring Boot, the Java Development Kit (JDK), or an already-present dependency solves the problem.
 
 ### 2.4 Compiler and Build Enforcement
 
@@ -1296,7 +1296,7 @@ private Customer customer;
 
 `@ManyToOne` and `@OneToOne` are eager by default. Loading one `Account` then pulls the `Customer`, and whatever that pulls, in a chain nobody asked for.
 
-**`CascadeType.ALL` and `CascadeType.REMOVE` are prohibited on any association touching financial data.** A cascade delete from an account to its ledger entries destroys the audit record. Deletion of financial records is a deliberate, migration-reviewed operation, never a side effect of an ORM cascade.
+**`CascadeType.ALL` and `CascadeType.REMOVE` are prohibited on any association touching financial data.** A cascade delete from an account to its ledger entries destroys the audit record. Deletion of financial records is a deliberate, migration-reviewed operation, never a side effect of an object-relational mapping (ORM) cascade.
 
 ### 9.4 Repositories
 
@@ -1659,7 +1659,7 @@ float amount = 1250.10f;
 
 `double` and `float` are binary floating point. Values like 0.1 have no exact binary representation. Errors accumulate across millions of rows, and a reconciliation run that is off by a fraction of a currency unit is a finding, not a rounding curiosity.
 
-**`BigDecimal` for every monetary value, in every layer: entity, DTO, service, and database.**
+**`BigDecimal` for every monetary value, in every layer: entity, data transfer object (DTO), service, and database.**
 
 ### 11.2 BigDecimal Rules
 
@@ -1933,7 +1933,7 @@ Four separate concerns, often confused with each other:
 
 ### 12.1 Virtual Threads
 
-A **platform thread** is an operating-system thread: roughly 1 MB of stack, and a few thousand is the practical ceiling. When a request blocks on a JDBC call, that thread sits idle but still occupies its slot. A **virtual thread** is scheduled by the JVM instead: when it blocks, the JVM parks it and hands the underlying platform thread (its *carrier*) to another virtual thread.
+A **platform thread** is an operating-system thread: roughly 1 MB of stack, and a few thousand is the practical ceiling. When a request blocks on a Java Database Connectivity (JDBC) call, that thread sits idle but still occupies its slot. A **virtual thread** is scheduled by the Java Virtual Machine (JVM) instead: when it blocks, the JVM parks it and hands the underlying platform thread (its *carrier*) to another virtual thread.
 
 ```
   Platform threads                        Virtual threads (Java 21)
@@ -2464,7 +2464,7 @@ public DefaultErrorHandler errorHandler(KafkaTemplate<String, String> template) 
 ```
 
 - **A poison message must never block a partition.** Without a dead-letter route, one malformed message halts every message behind it, indefinitely.
-- **Every DLT is monitored and alerted on.** A dead-letter topic nobody watches is a silent data-loss channel.
+- **Every dead-letter topic (DLT) is monitored and alerted on.** A dead-letter topic nobody watches is a silent data-loss channel.
 - **Reprocessing from a DLT is a deliberate, logged operation**, never an automatic drain.
 
 ### 13.5 Application Events Inside a Service
@@ -2503,8 +2503,8 @@ broker.publish(event.eventType(),
 | Account balances | Stale by definition; a cached balance authorizing a transfer is an overdraft |
 | Transaction and ledger history | Same reason, plus it is regulated data at rest in a second store |
 | Authentication tokens, sessions | A cache is a credential store nobody hardened |
-| Any PII or PCI data | Duplicates a regulated dataset into a system with different controls; see [ESTD21 §6](./ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md#6-data-classification) |
-| Authorization decisions | A revoked permission stays effective until the TTL expires |
+| Any personally identifiable information (PII) or PCI data | Duplicates a regulated dataset into a system with different controls; see [ESTD21 §6](./ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md#6-data-classification) |
+| Authorization decisions | A revoked permission stays effective until the time-to-live (TTL) expires |
 | Anything used to make a money-movement decision | Correctness beats latency, always |
 
 Caching is for data that is expensive to compute, changes rarely, and is not sensitive: reference data, product catalogues, currency lists, fee schedules, bank identifier lookups, feature flags.
@@ -2852,7 +2852,7 @@ log.debug("Transfer state: " + transfer.toString());
 
 This list is absolute. See [ESTD21 §8](./ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md#8-data-in-transit-and-in-use) for the full treatment.
 
-- Full account numbers, IBANs, card numbers (PAN), CVV, PIN
+- Full account numbers, International Bank Account Numbers (IBANs), card numbers (Primary Account Number, PAN), Card Verification Value (CVV), Personal Identification Number (PIN)
 - Passwords, tokens, API keys, session identifiers, authorization headers
 - Customer names, addresses, dates of birth, national identifiers, email addresses, phone numbers
 - Full request or response bodies on any endpoint carrying customer data
@@ -2916,7 +2916,7 @@ Minimum metric set for every service:
 | Outbox backlog depth and oldest unpublished age | Gauge | Detects a stalled relay before downstream notices |
 | Circuit breaker state per instance | Gauge | Explains a latency or error spike immediately |
 | Scheduled job last-success timestamp and duration | Gauge, Timer | A job that stops running produces no errors at all |
-| JVM heap, GC pause, thread count | Gauge | Standard |
+| JVM heap, garbage collection (GC) pause, thread count | Gauge | Standard |
 
 **Cardinality discipline**: never tag a metric with a customer id, account id, transfer id, or any unbounded value. It creates one time series per value and takes down the metrics backend.
 
@@ -3042,7 +3042,7 @@ class TransferControllerTest {
 
 ### 18.6 Integration Tests Use a Real Database
 
-H2 is prohibited for integration testing. It has different transaction semantics, different type handling, different `NUMERIC` behaviour, and no PostgreSQL-specific features — so it validates nothing about what will run in production.
+H2, the in-process Java database, is prohibited for integration testing. It has different transaction semantics, different type handling, different `NUMERIC` behaviour, and no PostgreSQL-specific features — so it validates nothing about what will run in production.
 
 ```java
 @SpringBootTest
@@ -3182,7 +3182,7 @@ Every build produces a CycloneDX SBOM, archived with the artifact. When the next
 
 ### 19.4 Licence Policy
 
-Every dependency's licence is recorded in the SBOM and checked against the institution's allowlist. Copyleft licences (GPL, AGPL) require legal approval before use in a commercial banking product. An unknown or missing licence is treated as prohibited until resolved.
+Every dependency's licence is recorded in the SBOM and checked against the institution's allowlist. Copyleft licences — the GNU General Public License (GPL) and its Affero variant (AGPL) — require legal approval before use in a commercial banking product. An unknown or missing licence is treated as prohibited until resolved.
 
 ---
 

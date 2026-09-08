@@ -24,7 +24,7 @@ ESTD21 covers everything about protecting data and proving what happened to it: 
 
 Read [ESTD20](./ESTD20_-_Spring_Boot_Framework_Standards.md#estd20---spring-boot-framework-standards-for-banking-services) first. ESTD20 defines the framework structure this document assumes: layering, configuration, transactions, and the ledger model. ESTD21 does not restate those rules; it adds the protection layer over them.
 
-**These rules are not advisory.** Several map directly to obligations under PCI DSS 4.0, GDPR/DPDP, and SOX. A deviation is not a code-review preference — it is a finding, and in some cases a reportable one. Exceptions require written approval from the Security Architect and must be recorded in the exception log with a compensating control and a review date.
+**These rules are not advisory.** Several map directly to obligations under the Payment Card Industry Data Security Standard (PCI DSS) 4.0, the General Data Protection Regulation (GDPR) and Digital Personal Data Protection (DPDP) regimes, and the Sarbanes-Oxley Act (SOX). A deviation is not a code-review preference — it is a finding, and in some cases a reportable one. Exceptions require written approval from the Security Architect and must be recorded in the exception log with a compensating control and a review date.
 
 **Regulatory note**: this document encodes the engineering controls. It does not replace the institution's own compliance policy, its Data Protection Officer's determinations, or its PCI assessor's scoping decisions. Where they differ, they win, and this document is updated.
 
@@ -137,7 +137,7 @@ Read [ESTD20](./ESTD20_-_Spring_Boot_Framework_Standards.md#estd20---spring-boot
 
 The failures this document prevents are specific:
 
-- A JWT accepted without validating its audience, so a token minted for a different application authenticates against this one.
+- A JSON Web Token (JWT) accepted without validating its audience, so a token minted for a different application authenticates against this one.
 - An endpoint that loads a resource by id and checks ownership afterwards — or not at all — so changing one digit in a URL returns another customer's data.
 - `log.info("payload={}", request)` on a payment endpoint, writing full card numbers into a log aggregator that half the company can query.
 - A `Sort` built from a request parameter, turning a query into an injection point.
@@ -146,7 +146,7 @@ The failures this document prevents are specific:
 
 **In scope**: trust boundaries, OAuth2 resource server authentication, authorization and ownership, transport and endpoint security, data classification, encryption at rest, data in transit and in use, masking and tokenization, secrets management, input and injection security, rate limiting, audit trail, GDPR/DPDP compliance, PCI DSS 4.0 scope management, token and credential handling, security testing, and incident response hooks.
 
-**Out of scope**: network segmentation, host hardening, WAF configuration, IdP administration, and key management infrastructure. These are platform responsibilities. This document specifies what the application must assume about them and what it must do with what they provide.
+**Out of scope**: network segmentation, host hardening, web application firewall (WAF) configuration, identity provider (IdP) administration, and key management infrastructure. These are platform responsibilities. This document specifies what the application must assume about them and what it must do with what they provide.
 
 ---
 
@@ -198,8 +198,8 @@ Design so that a single failure is not a total failure:
 | If this is compromised | It must not yield |
 |:-----------------------|:------------------|
 | One access token | Anything beyond that customer's own data, for the token's short lifetime |
-| The application log store | Any account number, PAN, credential, or identifiable customer record |
-| A database backup | Readable card data or unencrypted PII — encryption keys live elsewhere |
+| The application log store | Any account number, card number (Primary Account Number, PAN), credential, or identifiable customer record |
+| A database backup | Readable card data or unencrypted personally identifiable information (PII) — encryption keys live elsewhere |
 | One service's database role | Write access to another service's schema, or any grant on the audit and ledger tables |
 | A heap dump | A long-lived secret — secrets are held as `char[]` and cleared, never as interned `String` constants |
 
@@ -278,11 +278,11 @@ Each line prevents a specific attack:
 
 | Control | Attack Prevented |
 |:--------|:-----------------|
-| Explicit algorithm allowlist | `alg: none` acceptance; RS256-to-HS256 confusion, where the public key is used as an HMAC secret |
+| Explicit algorithm allowlist | `alg: none` acceptance; RS256-to-HS256 confusion — an asymmetric signature swapped for a symmetric one — where the public key is used as a hash-based message authentication code (HMAC) secret |
 | Issuer validation | A token from a different, attacker-controlled issuer |
 | **Audience validation** | A valid token minted for a different application in the same estate being replayed here |
 | Bounded clock skew (30 s) | An expired token accepted because of a generous skew allowance |
-| Signature via JWKS | A forged or unsigned token |
+| Signature via the JSON Web Key Set (JWKS) | A forged or unsigned token |
 
 **Audience validation is the one most often omitted and the one that matters most in a multi-application estate.** Without it, any service that trusts the same issuer accepts any token the issuer ever minted, including one obtained from a low-value application.
 
@@ -292,8 +292,8 @@ Each line prevents a specific attack:
 - **Never logged.** Not at `DEBUG`, not in a request dump, not in an exception message.
 - **Never persisted** by the service. A resource server validates and discards.
 - **Access token lifetime: 15 minutes or less.** Refresh handling is the identity provider's concern; see [§16](#16-session-token-and-credential-handling).
-- **Never in `localStorage`** in a browser client — that is XSS-readable. This is a client-side rule the service cannot enforce, so it is stated in the API contract and verified at integration review.
-- **JWKS is cached with a bounded TTL and a refresh on unknown `kid`.** Fetching JWKS per request is a denial-of-service vector against your own identity provider; caching forever breaks key rotation.
+- **Never in `localStorage`** in a browser client — that is readable by cross-site scripting (XSS). This is a client-side rule the service cannot enforce, so it is stated in the API contract and verified at integration review.
+- **JWKS is cached with a bounded time-to-live (TTL) and a refresh on unknown `kid`.** Fetching JWKS per request is a denial-of-service vector against your own identity provider; caching forever breaks key rotation.
 
 ### 3.4 Extracting the Principal
 
@@ -464,7 +464,7 @@ A rejected self-approval attempt is itself an audited security event. It is one 
 
 ### 5.1 TLS
 
-- **TLS 1.2 minimum; TLS 1.3 preferred.** TLS 1.0 and 1.1 are disabled — PCI DSS 4.0 requires it and they are broken independently of that.
+- **Transport Layer Security (TLS) 1.2 minimum; TLS 1.3 preferred.** TLS 1.0 and 1.1 are disabled — PCI DSS 4.0 requires it and they are broken independently of that.
 - **HTTP is never served.** Not for a redirect, not for a health check, not in any environment.
 - Certificate validation is never disabled. A "temporary" trust-all `TrustManager` in a client is prohibited outright; it has an unbroken record of surviving into production.
 
@@ -474,8 +474,8 @@ Set in the filter chain shown in [§3.1](#31-the-service-validates-the-token-its
 
 | Header | Value | Prevents |
 |:-------|:------|:---------|
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Protocol downgrade, SSL stripping |
-| `X-Content-Type-Options` | `nosniff` | MIME confusion leading to script execution |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Protocol downgrade, Secure Sockets Layer (SSL) stripping |
+| `X-Content-Type-Options` | `nosniff` | Multipurpose Internet Mail Extensions (MIME) confusion leading to script execution |
 | `X-Frame-Options` | `DENY` | Clickjacking |
 | `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'` | Injection surface on an API that serves no markup |
 | `Cache-Control` | `no-store` on every response carrying customer data | Sensitive responses cached by a proxy or the browser |
@@ -484,6 +484,8 @@ Set in the filter chain shown in [§3.1](#31-the-service-validates-the-token-its
 `Cache-Control: no-store` on customer data endpoints is not optional. A cached statement response served to the next user of a shared device is a disclosure.
 
 ### 5.3 CORS
+
+Cross-Origin Resource Sharing (CORS) is the browser-enforced rule set deciding which other origins may call this API from a page. It constrains browsers only — a non-browser client ignores it — so it is a defence for the customer's browser session, never an authorization control.
 
 ```java
 @Bean
@@ -506,7 +508,7 @@ public CorsConfigurationSource corsConfigurationSource(WebProperties properties)
 
 ### 5.4 CSRF
 
-CSRF protection is disabled **only** because the API is stateless and authenticates exclusively via the `Authorization` header, which a browser does not attach automatically to a cross-site request. That justification is recorded here so a future reader does not assume it was an oversight.
+Cross-site request forgery (CSRF) protection is disabled **only** because the API is stateless and authenticates exclusively via the `Authorization` header, which a browser does not attach automatically to a cross-site request. That justification is recorded here so a future reader does not assume it was an oversight.
 
 If any endpoint ever authenticates via a cookie, CSRF protection becomes mandatory for it immediately. The two decisions are linked; changing one without the other is a vulnerability.
 
@@ -544,9 +546,9 @@ Every field this service handles falls into one of these classes. The class dete
 
 | Class | Examples | Storage | Logging | Response | Retention |
 |:------|:---------|:--------|:--------|:---------|:----------|
-| **Prohibited** | CVV/CVC, PIN, full magnetic-stripe or chip track data, private keys | **Never stored, in any form, encrypted or not** | Never | Never | N/A |
+| **Prohibited** | Card Verification Value or Code (CVV/CVC), Personal Identification Number (PIN), full magnetic-stripe or chip track data, private keys | **Never stored, in any form, encrypted or not** | Never | Never | N/A |
 | **Restricted** | PAN (card number), credentials, authentication tokens, national identifier | Encrypted or tokenized; PAN only if unavoidable and in a PCI-scoped store | Never | Masked only | Minimum required by regulation |
-| **Confidential** | Account number, IBAN, balance, transaction detail, date of birth, address | Encrypted at rest; access controlled | Never in full; internal ids only | Masked unless the endpoint's purpose requires full | Per retention schedule |
+| **Confidential** | Account number, International Bank Account Number (IBAN), balance, transaction detail, date of birth, address | Encrypted at rest; access controlled | Never in full; internal ids only | Masked unless the endpoint's purpose requires full | Per retention schedule |
 | **Internal** | Internal UUIDs, correlation ids, error codes, product codes, feature flags | Standard | Yes | Yes | Standard |
 | **Public** | Currency codes, branch directory, product catalogue, fee schedules | Standard | Yes | Yes | Standard |
 
@@ -608,7 +610,7 @@ Layers 1 and 2 are platform responsibilities and are mandatory. **Layer 3 is the
 
 ### 7.2 Envelope Encryption
 
-Data keys encrypt data. A master key in the institution's KMS or HSM encrypts the data keys. The master key never leaves the KMS.
+Data keys encrypt data. A master key in the institution's key management service (KMS) or hardware security module (HSM) encrypts the data keys. The master key never leaves the KMS.
 
 ```
    plaintext ──[ AES-256-GCM with data key ]──▶ ciphertext ─┐
@@ -656,8 +658,8 @@ public class Customer {
 
 Requirements, each of which is a real failure mode when omitted:
 
-- **AES-256-GCM**, not CBC. GCM is authenticated; CBC without a separate MAC is malleable and has a long history of padding-oracle attacks.
-- **A fresh random IV for every encryption.** IV reuse under GCM is catastrophic — it leaks the authentication key, not just the plaintext.
+- **AES-256-GCM** — the Advanced Encryption Standard (AES) in Galois/Counter Mode (GCM) — not Cipher Block Chaining (CBC). GCM is authenticated; CBC without a separate message authentication code (MAC) is malleable and has a long history of padding-oracle attacks.
+- **A fresh random initialization vector (IV) for every encryption.** IV reuse under GCM is catastrophic — it leaks the authentication key, not just the plaintext.
 - **The key identifier is stored with the ciphertext** so a rotated key can still decrypt historical rows.
 - **Keys are never in application configuration, environment variables, or source.** They come from the KMS at runtime.
 
@@ -761,7 +763,7 @@ GOOD:        GET /api/v1/accounts/3f2a9c11-8f4e-4c2b-9a10-6d4c2e7b1a55
 GOOD:        POST /api/v1/accounts/search   { "iban": "GB29NWBK60161331926819" }
 ```
 
-URLs are logged by the load balancer, the reverse proxy, the CDN, the browser, and the access log — none of which apply the masking rules the application does.
+URLs are logged by the load balancer, the reverse proxy, the content delivery network (CDN), the browser, and the access log — none of which apply the masking rules the application does.
 
 ### 8.4 Traces and Metrics Follow the Same Rules
 
@@ -865,7 +867,7 @@ Secrets are fetched at startup from the institution's secrets manager, using a w
 
 - Secrets in `application.yml`, `application-prod.yml`, or any file in the repository
 - Secrets in environment variables set from a committed file, or visible in a container image layer
-- Secrets in a Docker image, a build argument, or CI logs
+- Secrets in a Docker image, a build argument, or continuous integration (CI) logs
 - Secrets in code, including "temporary" test credentials for a shared environment
 - Secrets in a comment, a commit message, or a ticket
 
@@ -976,7 +978,7 @@ Generated filenames — a statement PDF, an export — are constructed from inte
 
 ### 11.4 Server-Side Request Forgery
 
-Any outbound URL derived from user input is an SSRF vector: it lets a caller use the service to reach the cloud metadata endpoint, internal admin interfaces, or another service's private port.
+Any outbound URL derived from user input is a server-side request forgery (SSRF) vector: it lets a caller use the service to reach the cloud metadata endpoint, internal admin interfaces, or another service's private port.
 
 ```java
 public void validateOutboundUrl(URI uri) {
@@ -1028,7 +1030,7 @@ Use JSON with explicit types. Jackson's polymorphic type handling (`enableDefaul
 
 ### 11.8 Mass Assignment
 
-The DTO defines exactly what a client may set. Binding a request directly onto an entity lets a caller set `status`, `balance`, `customerId`, or `role` by adding a field to the JSON body.
+The data transfer object (DTO) defines exactly what a client may set. Binding a request directly onto an entity lets a caller set `status`, `balance`, `customerId`, or `role` by adding a field to the JSON body.
 
 ```java
 // PROHIBITED — the client controls every settable property of the entity
@@ -1065,7 +1067,7 @@ if (!rateLimiter.tryAcquire(key)) {
 ```
 
 - Rate limit state is **shared across instances** (Redis or the database). A per-instance limiter multiplies the effective limit by the instance count.
-- Limits key on the authenticated subject where one exists, and on the source address only where one does not. Keying solely on address penalizes shared NAT egress and is trivially evaded.
+- Limits key on the authenticated subject where one exists, and on the source address only where one does not. Keying solely on address penalizes shared network address translation (NAT) egress and is trivially evaded.
 - **Every limit breach is an audited security event** ([§13](#13-audit-trail)). A burst of them is a strong attack signal.
 - Responses to a rate-limited caller reveal nothing about the limit's internals beyond `Retry-After`.
 
@@ -1318,7 +1320,7 @@ Every table holding personal data has an entry here, and an automated expiry job
 | Data | Retention | Basis |
 |:-----|:----------|:------|
 | Transaction and ledger records | 7–10 years per jurisdiction | Financial regulation |
-| KYC and identity documents | 5 years after the relationship ends | AML regulation |
+| Know Your Customer (KYC) and identity documents | 5 years after the relationship ends | Anti-money-laundering (AML) regulation |
 | Customer contact details | Life of the relationship + statutory period | Contract |
 | Marketing consent records | Until withdrawn + 2 years | Proof of consent |
 | Application logs | 90 days | Operational |
@@ -1347,7 +1349,7 @@ A service is inside the cardholder data environment if it stores, processes, or 
 | Transmits the PAN, even in passing | Yes | Including a proxy that never persists it |
 | Holds only a token from a PCI-scoped tokenization service | **No** | The preferred design |
 | Displays only a masked PAN it never held in full | No | |
-| Shares a network segment with a CDE system without segmentation | Yes | Segmentation must be demonstrable |
+| Shares a network segment with a cardholder data environment (CDE) system without segmentation | Yes | Segmentation must be demonstrable |
 
 ### 15.2 Stay Out of Scope
 
@@ -1366,7 +1368,7 @@ The cheapest way to satisfy PCI DSS for a service is for the service not to hand
                          └────────────────────────┘
 ```
 
-Where the client must submit card details, they go directly to the PSP or the tokenization endpoint — never through this service, and never through a form this service renders and posts.
+Where the client must submit card details, they go directly to the payment service provider (PSP) or the tokenization endpoint — never through this service, and never through a form this service renders and posts.
 
 ### 15.3 If a Service Must Be In Scope
 
@@ -1405,7 +1407,7 @@ The list is keyed by the token's `jti` claim and by subject, cached with a short
 Where this service stores a credential at all — usually it does not, because the identity provider owns them:
 
 - **Argon2id** with parameters tuned so a single verification takes roughly 250–500 ms on production hardware. bcrypt with a cost factor of 12 or more is the fallback where Argon2 is unavailable.
-- **Never SHA-256, MD5, or any fast hash**, with or without a salt. Fast hashes are the point of the attack, not a defence against it.
+- **Never the Secure Hash Algorithm (SHA-256), Message Digest 5 (MD5), or any fast hash**, with or without a salt. Fast hashes are the point of the attack, not a defence against it.
 - **Constant-time comparison** for every secret comparison, including tokens, HMACs, and API keys. A short-circuiting `equals` leaks the value one byte at a time under timing analysis.
 
 ```java
@@ -1436,11 +1438,11 @@ The step-up outcome is bound to the specific operation — the transfer id, the 
 
 | Gate | Tool Class | Fails The Build On |
 |:-----|:-----------|:-------------------|
-| Dependency vulnerabilities | OWASP Dependency-Check, or equivalent | HIGH or CRITICAL ([ESTD20 §19.2](./ESTD20_-_Spring_Boot_Framework_Standards.md#192-vulnerability-gating)) |
+| Dependency vulnerabilities | Open Worldwide Application Security Project (OWASP) Dependency-Check, or equivalent | HIGH or CRITICAL ([ESTD20 §19.2](./ESTD20_-_Spring_Boot_Framework_Standards.md#192-vulnerability-gating)) |
 | Static analysis | SpotBugs with FindSecBugs, plus Semgrep | Any security-category finding |
 | Secret scanning | Gitleaks, or equivalent | Any finding, including in history |
 | Container scanning | Trivy, or equivalent | HIGH or CRITICAL in the base image |
-| Dynamic scanning | DAST against a deployed non-production instance | HIGH or CRITICAL |
+| Dynamic scanning | Dynamic application security testing (DAST) against a deployed non-production instance | HIGH or CRITICAL |
 
 ### 17.2 Security Tests Are Written, Not Assumed
 
@@ -1507,8 +1509,8 @@ void approve_whenApproverIsTheMaker_isRejectedAndAudited() {
 | A new field on any entity or DTO | Data classification, masking, retention, whether it belongs in the ledger |
 | A new outbound integration | SSRF validation, timeout, circuit breaker, credential handling, data transferred |
 | A change to the security filter chain | Full security review; never merged on a single approval |
-| A change touching money movement or the ledger | Security review plus four-eyes approval on the PR |
-| A new dependency | Licence, maintenance status, CVE history, whether the platform already provides it |
+| A change touching money movement or the ledger | Security review plus four-eyes approval on the pull request (PR) |
+| A new dependency | Licence, maintenance status, Common Vulnerabilities and Exposures (CVE) history, whether the platform already provides it |
 
 ### 17.4 Penetration Testing
 
