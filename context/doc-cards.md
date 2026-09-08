@@ -7,7 +7,7 @@
 - entry_id_format: stable ESTD ID
 
 ## Jump Index
-- kind.estd-doc: `ESTD0` through `ESTD19`
+- kind.estd-doc: `ESTD0` through `ESTD21`
 
 ## Cards
 
@@ -230,3 +230,25 @@
 - major_overlaps: ESTD4 for service boundaries, ESTD17 for pipeline composition
 - common_edit_reasons: layering rules, coupling guidance, dependency direction, examples
 - minimum_related_docs_to_read: `docs/ESTD1_-_Common_Engg_Standards_And_Best_Practices.md`
+
+### ESTD20
+- path: `docs/ESTD20_-_Spring_Boot_Framework_Standards.md`
+- kind: estd-doc
+- purpose: self-contained Spring Boot framework standard for regulated banking services
+- state: verified
+- audience: engineers building Spring Boot 3.3+ / Java 21 banking services
+- parent_docs: none — self-contained by design
+- major_overlaps: ESTD21 for security and data protection; ESTD7 covers SEAM, not Spring Boot
+- common_edit_reasons: framework structure, configuration, persistence, transactions, monetary and ledger rules, messaging, batch, resilience, testing
+- minimum_related_docs_to_read: `AGENTS.md`, `docs/ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md`
+
+### ESTD21
+- path: `docs/ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md`
+- kind: estd-doc
+- purpose: data protection, security, and audit standard for Spring Boot banking services
+- state: verified
+- audience: engineers handling customer, account, payment, or card data in Spring Boot services
+- parent_docs: `ESTD20`
+- major_overlaps: ESTD20 for framework baseline; PCI DSS, GDPR/DPDP, and SOX obligations
+- common_edit_reasons: authentication, authorization, encryption, masking, secrets, injection defence, audit trail, privacy, compliance scope
+- minimum_related_docs_to_read: `docs/ESTD20_-_Spring_Boot_Framework_Standards.md`

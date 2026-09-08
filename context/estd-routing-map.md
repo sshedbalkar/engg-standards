@@ -25,6 +25,8 @@ Route Bingo engineering work to authoritative ESTD docs for LLM retrieval and on
 - route.php-monolith
 - route.product-website
 - route.smartfox-server
+- route.spring-boot-api
+- route.spring-boot-security
 - route.technical-docs
 - route.unity-client
 - route.web-tools
@@ -125,6 +127,24 @@ Apply these to most implementation validators unless the route says otherwise.
 - Validator facets: server authority, handler structure, input trust boundary, permission boundaries, room lifecycle, thread safety, idempotency, reconnect behavior, JVM memory, metrics, graceful shutdown, testing.
 - Trigger keywords: SmartFox, SFS, extension, room, handler, real-time, presence, reconnect, sequence ID, JVM, live server, trust boundary, permission boundary, untrusted data, partially trusted data.
 - Known coverage notes: none.
+
+### route.spring-boot-api
+- Field: Spring Boot banking service framework development.
+- Use when: change touches Spring Boot controllers, services, Spring Data JPA repositories, entities, Flyway migrations, monetary or ledger logic, idempotency, schedulers, Kafka consumers, Spring Batch jobs, caching, or Maven dependencies in a Spring Boot service.
+- Primary source docs: `ESTD20`.
+- Supporting source docs: `ESTD10`, `ESTD14`, `ESTD16`, `ESTD18`, `ESTD19`, `ESTD21`.
+- Validator facets: layering, dependency direction, typed configuration, constructor injection, API shape, boundary validation, error contract, transactions, optimistic locking, N+1, migrations, BigDecimal correctness, double-entry ledger, idempotency, outbox, scheduler locking, caching prohibitions, batch restartability, timeouts, circuit breakers, observability, testing, dependency hygiene.
+- Trigger keywords: Spring Boot, Spring, @Transactional, @RestController, Spring Data JPA, Hibernate, Flyway, HikariCP, BigDecimal, ledger, double-entry, idempotency key, outbox, ShedLock, Resilience4j, Testcontainers, Actuator, PostgreSQL, banking service.
+- Known coverage notes: `ESTD20` is self-contained and does not inherit `ESTD1` or `ESTD4`; do not route Spring Boot work through SEAM or PHP standards.
+
+### route.spring-boot-security
+- Field: Data protection, security, and audit for Spring Boot banking services.
+- Use when: change touches security filter chains, JWT validation, authorization or ownership rules, encryption converters, masking, tokenization, secrets access, rate limiting, audit writes, retention, or privacy handling in a Spring Boot service.
+- Primary source docs: `ESTD21`.
+- Supporting source docs: `ESTD10`, `ESTD16`, `ESTD19`, `ESTD20`.
+- Validator facets: trust boundaries, token validation, audience and issuer checks, deny-by-default, object-level authorization, four-eyes approval, data classification, encryption at rest, key custody, masking, tokenization, PCI scope, secrets lifecycle, injection defence, SSRF, deserialization, rate limiting, audit immutability, tamper evidence, retention, erasure, breach notification.
+- Trigger keywords: Spring Security, OAuth2, resource server, JWT, JWKS, audience, @PreAuthorize, ownership, BOLA, masking, PAN, tokenization, PCI DSS, GDPR, DPDP, SOX, crypto-shredding, blind index, KMS, audit trail, four-eyes, maker-checker, step-up, SSRF, deserialization.
+- Known coverage notes: `ESTD21` encodes engineering controls only; institutional compliance policy and assessor scoping decisions override it.
 
 ### route.technical-docs
 - Field: Technical documents and ESTD document authoring.

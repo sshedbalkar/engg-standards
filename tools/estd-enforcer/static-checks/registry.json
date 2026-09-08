@@ -94,7 +94,7 @@
 		{
 			"id": "static.java.spotbugs",
 			"kind": "command",
-			"routes": ["route.java-seam-api", "route.smartfox-server"],
+			"routes": ["route.java-seam-api", "route.smartfox-server", "route.spring-boot-api", "route.spring-boot-security"],
 			"primaryRoute": "route.java-seam-api",
 			"severity": "high",
 			"estd": {

@@ -26,6 +26,8 @@ Validator specs define how static tools and LLM gap review evaluate code against
 - route.php-monolith
 - route.product-website
 - route.smartfox-server
+- route.spring-boot-api
+- route.spring-boot-security
 - route.technical-docs
 - route.unity-client
 - route.web-tools
@@ -58,6 +60,8 @@ Validator specs define how static tools and LLM gap review evaluate code against
 | `validator.php-monolith` | `route.php-monolith` | `context/validators/php-monolith-validator.md` |
 | `validator.product-website` | `route.product-website` | `context/validators/product-website-validator.md` |
 | `validator.smartfox-server` | `route.smartfox-server` | `context/validators/smartfox-server-validator.md` |
+| `validator.spring-boot-api` | `route.spring-boot-api` | `context/validators/spring-boot-api-validator.md` |
+| `validator.spring-boot-security` | `route.spring-boot-security` | `context/validators/spring-boot-security-validator.md` |
 | `validator.technical-docs` | `route.technical-docs` | `context/validators/technical-docs-validator.md` |
 | `validator.unity-client` | `route.unity-client` | `context/validators/unity-client-validator.md` |
 | `validator.web-tools` | `route.web-tools` | `context/validators/web-tools-validator.md` |

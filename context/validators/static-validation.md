@@ -34,6 +34,8 @@ Use static validation for checks that can be decided from files, configured tool
 - route.php-monolith
 - route.product-website
 - route.smartfox-server
+- route.spring-boot-api
+- route.spring-boot-security
 - route.technical-docs
 - route.unity-client
 - route.web-tools
@@ -86,7 +88,7 @@ Update this file whenever any of these change:
 | `static.cloud.terraform-validate` | Terraform validation | `route.cloud-aws` | `terraform validate -no-color` | `ESTD8` section `2.2` | Terraform configuration validity |
 | `static.common.gitleaks` | cross-stack secret scan | `route.common` | `gitleaks detect --no-git --redact --source .` | `ESTD1` section `19` | credential and secret leakage across source and config files |
 | `static.common.semgrep` | cross-stack security scan | `route.common` | `semgrep --config .semgrep.yml --error .` | `ESTD1` section `18.5` | project-defined semantic security rules across PHP, Java, C#, TypeScript, and TSX |
-| `static.java.spotbugs` | Java static analysis | `route.java-seam-api`, `route.smartfox-server` | `mvn -q -DskipTests spotbugs:check` | `ESTD7` section `13` | Java security and bug-pattern checks |
+| `static.java.spotbugs` | Java static analysis | `route.java-seam-api`, `route.smartfox-server`, `route.spring-boot-api`, `route.spring-boot-security` | `mvn -q -DskipTests spotbugs:check` | `ESTD7` section `13` | Java security and bug-pattern checks |
 | `static.jenkins.jenkinsfile-lint` | Jenkins pipeline lint | `route.jenkins-cicd` | `jenkinsfile-runner lint Jenkinsfile` | `ESTD13` section `4.2` | Jenkinsfile syntax and pipeline entrypoint validity |
 | `static.php.phpstan` | PHP static analysis | `route.php-monolith` | `vendor/bin/phpstan analyse --no-progress` | `ESTD6` section `2` | PHP version/configuration, type, and static analysis expectations |
 | `static.unity.roslyn` | Unity/C# compile analysis | `route.unity-client` | `dotnet build --no-restore` | `ESTD3` section `2` | C# compile and analyzer output for `.cs` changes |
@@ -194,6 +196,32 @@ Update this file whenever any of these change:
 | Security and abuse controls | `static.common.secrets`, `static.common.gitleaks`, `static.common.semgrep` | trust-boundary and abuse-control adequacy |
 | Observability, memory, and shutdown | `static.java.spotbugs` | shutdown and leak-risk sufficiency |
 | Testing and PR evidence | `static.common.report-consistency` | path coverage and review evidence |
+
+### `validator.spring-boot-api`
+
+| Group | Static Check IDs | Residual LLM Gap |
+|:------|:-----------------|:-----------------|
+| Spring layering and API design | `static.java.spotbugs`, `static.common.folder-structure` | Spring layering, API contract, and boundary intent |
+| Configuration and bean design | `static.java.spotbugs`, `static.common.secrets` | configuration ownership and bean lifecycle judgment |
+| Persistence and transactions | `static.java.spotbugs`, `static.common.semgrep` | transaction boundary and migration safety intent |
+| Money and data integrity | `static.java.spotbugs`, `static.common.semgrep` | monetary correctness and ledger invariant intent |
+| Boundary validation and errors | `static.java.spotbugs`, `static.common.semgrep` | validation completeness and error disclosure judgment |
+| Async, messaging, batch, and caching | `static.java.spotbugs` | delivery guarantee and job safety intent |
+| Observability and resilience | `static.java.spotbugs` | resilience posture and signal sufficiency |
+| Testing and dependency evidence | `static.common.report-consistency` | coverage adequacy and dependency approval context |
+
+### `validator.spring-boot-security`
+
+| Group | Static Check IDs | Residual LLM Gap |
+|:------|:-----------------|:-----------------|
+| Authentication and token validation | `static.java.spotbugs`, `static.common.semgrep` | token trust boundary and issuer intent |
+| Authorization and ownership | `static.java.spotbugs`, `static.common.semgrep` | object-level authorization and approval intent |
+| Data classification and encryption | `static.common.secrets`, `static.common.gitleaks`, `static.java.spotbugs` | classification coverage and key custody judgment |
+| Masking, tokenization, and PCI scope | `static.common.semgrep`, `static.java.spotbugs` | disclosure surface and PCI scope judgment |
+| Secrets management | `static.common.secrets`, `static.common.gitleaks` | secret lifecycle and exposure judgment |
+| Input and injection security | `static.common.semgrep`, `static.java.spotbugs` | injection reachability and allowlist adequacy |
+| Audit trail and SOX evidence | `static.java.spotbugs`, `static.common.report-consistency` | audit completeness and immutability intent |
+| Privacy and retention | `static.common.report-consistency` | erasure feasibility and retention basis |
 
 ### `validator.technical-docs`
 

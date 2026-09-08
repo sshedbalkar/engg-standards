@@ -24,6 +24,8 @@ ESTD documents are the authoritative engineering standards for the Bingo team. T
 18. [ESTD17 — Waterfall Data Processing Pattern](docs/ESTD17_-_Waterfall_Data_Processing_Pattern.md)
 19. [ESTD18 — Codebase Folder Structure Standards](docs/ESTD18_-_Codebase_Folder_Structure_Standards.md)
 20. [ESTD19 — Dependency Management and Coupling Standards](docs/ESTD19_-_Dependency_Management_and_Coupling_Standards.md)
+21. [ESTD20 — Spring Boot Framework Standards for Banking Services](docs/ESTD20_-_Spring_Boot_Framework_Standards.md)
+22. [ESTD21 — Data Protection, Security and Audit Standards for Spring Boot Banking Services](docs/ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md)
 
 ## Validation
 

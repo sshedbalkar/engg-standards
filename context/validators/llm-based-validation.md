@@ -27,6 +27,8 @@ Use LLM based validation for intent, architecture, UX, operational evidence, tra
 - route.php-monolith
 - route.product-website
 - route.smartfox-server
+- route.spring-boot-api
+- route.spring-boot-security
 - route.technical-docs
 - route.unity-client
 - route.web-tools
@@ -174,6 +176,32 @@ Every LLM finding must:
 | Security and abuse controls | 10 | `ESTD1`, `ESTD4`, `ESTD12` | join validation, session handling, input trust boundary, permission boundaries, SmartFox vulnerability coverage; resolves trust-boundary and abuse-control adequacy |
 | Observability, memory, and shutdown | 10 | `ESTD12`, `ESTD13` | logs, metrics, JVM tuning, leak prevention, graceful shutdown/restart, build pipeline; resolves shutdown and leak-risk sufficiency |
 | Testing and PR evidence | 10 | `ESTD12`, `ESTD16`, `ESTD10` | engine isolation tests, win pattern coverage, path coverage, release-close risk notes, review evidence; resolves path coverage and review evidence |
+
+### `validator.spring-boot-api`
+
+| Group | Weight | ESTD Sources | LLM Validates |
+|:------|:-------|:-------------|:--------------|
+| Spring layering and API design | 15 | `ESTD20`, `ESTD19` | package layout, layer responsibilities, dependency direction, entity never crossing the controller boundary, URL and versioning shape, status code selection, pagination caps; resolves Spring layering, API contract, and boundary intent |
+| Configuration and bean design | 10 | `ESTD20`, `ESTD18` | typed configuration properties, profile and secret separation, component scan scope, constructor injection, stateless singletons, no circular references; resolves configuration ownership and bean lifecycle judgment |
+| Persistence and transactions | 15 | `ESTD20`, `ESTD9` | lazy associations, optimistic locking, open-in-view disabled, N+1 avoidance, Flyway migration hygiene, expand-contract, transaction boundary placement, self-invocation, remote calls inside transactions; resolves transaction boundary and migration safety intent |
+| Money and data integrity | 20 | `ESTD20` | BigDecimal usage and scale, banker's rounding, currency pairing, append-only double-entry ledger, balance as projection, idempotency store, database-level invariants, temporal correctness; resolves monetary correctness and ledger invariant intent |
+| Boundary validation and errors | 15 | `ESTD20`, `ESTD21` | boundary validation completeness, unknown-property rejection, custom domain constraints, exception hierarchy, global handler coverage, error code catalogue, no internal detail in responses; resolves validation completeness and error disclosure judgment |
+| Async, messaging, batch, and caching | 10 | `ESTD20`, `ESTD17` | bounded executors, distributed scheduler locks, transactional outbox, idempotent consumers, dead-letter routing, cache prohibitions and TTLs, batch restartability and reconciliation; resolves delivery guarantee and job safety intent |
+| Observability and resilience | 10 | `ESTD20` | correlation propagation, structured logging discipline, metric set and cardinality, timeouts on outbound calls, circuit breaker fail-closed behavior, health and readiness separation; resolves resilience posture and signal sufficiency |
+| Testing and dependency evidence | 5 | `ESTD16`, `ESTD10`, `ESTD19` | slice and Testcontainers coverage, concurrency and rollback tests, branch coverage on money paths, SBOM and CVE gating, pinned versions, PR review evidence; resolves coverage adequacy and dependency approval context |
+
+### `validator.spring-boot-security`
+
+| Group | Weight | ESTD Sources | LLM Validates |
+|:------|:-------|:-------------|:--------------|
+| Authentication and token validation | 15 | `ESTD21` | resource server configuration, algorithm allowlist, issuer and audience validation, clock skew bounds, JWKS caching, principal derived only from the validated token; resolves token trust boundary and issuer intent |
+| Authorization and ownership | 15 | `ESTD21`, `ESTD20` | deny-by-default matcher order, service-layer method security, scope and role separation, ownership enforced in the query, 404 over 403, four-eyes approval on high-risk operations; resolves object-level authorization and approval intent |
+| Data classification and encryption | 20 | `ESTD21` | field classification coverage, column-level encryption, envelope encryption and key custody, IV and mode selection, blind index usage, key rotation readiness, backup key separation; resolves classification coverage and key custody judgment |
+| Masking, tokenization, and PCI scope | 15 | `ESTD21` | PAN and account masking at the response boundary, tokenization boundary, prohibited data never persisted, cardholder data environment scope decisions; resolves disclosure surface and PCI scope judgment |
+| Secrets management | 10 | `ESTD21` | no secrets in configuration or source, secrets manager retrieval, rotation readiness, secret handling in memory, heap dump and actuator exposure; resolves secret lifecycle and exposure judgment |
+| Input and injection security | 10 | `ESTD21` | parameterized queries, dynamic sort and field allowlists, path traversal containment, SSRF address validation, XXE hardening, deserialization prohibition, upload controls, mass assignment; resolves injection reachability and allowlist adequacy |
+| Audit trail and SOX evidence | 10 | `ESTD21` | audited event coverage including reads, record completeness, database-level immutability, tamper evidence chain, audit write propagation on failure, retention; resolves audit completeness and immutability intent |
+| Privacy and retention | 5 | `ESTD21` | personal data kept out of the ledger, erasure and crypto-shredding path, retention schedule enforcement, cross-border transfer constraints, consent records; resolves erasure feasibility and retention basis |
 
 ### `validator.technical-docs`
 

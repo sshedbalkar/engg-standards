@@ -40,9 +40,9 @@ This file owns current inventory, dependency summary, and script usage overview.
 
 ## Current Inventory
 
-- ESTD doc count: 20
-- Latest ESTD ID in repo: ESTD19
-- Next available ESTD ID: ESTD20
+- ESTD doc count: 22
+- Latest ESTD ID in repo: ESTD21
+- Next available ESTD ID: ESTD22
 
 ## Edit Workflow
 
@@ -92,6 +92,7 @@ ci/cd: ESTD13 depends on ESTD1, ESTD5, ESTD8, ESTD11
 standalone: ESTD14, ESTD16, ESTD17
 folder structure: ESTD18 cross-refs stack docs
 coupling: ESTD19 depends on ESTD1
+banking spring boot: ESTD20 self-contained -> ESTD21
 ```
 
 ## When To Open What
@@ -107,4 +108,6 @@ coupling: ESTD19 depends on ESTD1
 | naming | `docs/ESTD14_-_Hierarchical_Naming_Strategy_for_Programming_Entities.md` | direct stack standard using the names |
 | testing / paths / branches | `docs/ESTD16_-_Paths_And_Unit_Testing_Strategy.md` | owning stack standard |
 | doc templates | `docs/ESTD15_-_Technical_Document_Guide_and_Template.md` | related standards or runbooks |
+| spring boot banking service | `docs/ESTD20_-_Spring_Boot_Framework_Standards.md` | `docs/ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md` |
+| banking data protection / audit | `docs/ESTD21_-_Spring_Boot_Data_Protection_And_Security_Standards.md` | `docs/ESTD20_-_Spring_Boot_Framework_Standards.md` |
 | validator inventory | `context/validators/README.md` | `context/validators/static-validation.md`, `context/validators/llm-based-validation.md` |
