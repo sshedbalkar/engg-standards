@@ -1501,6 +1501,21 @@ public class TransferService {
 
 This is the single most common Spring transaction bug, and in a banking service it produces silent partial writes.
 
+**How `@Transactional` actually works.** Spring does not rewrite your class. At startup it wraps the bean in a *proxy* — a generated object of the same type holding a reference to your instance. Everything that injects `TransferService` receives the proxy, never your object. The proxy opens the transaction, delegates to your method, then commits or rolls back.
+
+```
+  Injected caller ──▶ TransferService PROXY ──▶ TransferService (your code)
+                            │                            │
+                      begin transaction          executeOne(...) body
+                      commit / rollback
+
+  Inside the class:  executeBatch() ──▶ this.executeOne()
+                                            ▲
+                                            └── proxy never runs; no transaction
+```
+
+The transaction lives in the proxy, not in your class. So the annotation takes effect only when the call arrives from *outside* the bean, through an injected reference. A call from one method of the class to another resolves to `this` and skips the proxy.
+
 ```java
 @Service
 public class TransferService {
@@ -1519,7 +1534,9 @@ public class TransferService {
 }
 ```
 
-`@Transactional` is implemented by a proxy. An internal call goes straight to `this`, so the proxy never runs and no transaction is started. The debit commits, the credit fails, and the ledger is out of balance with no error visible anywhere.
+Nothing warns you. The annotation is present, the code compiles, the batch appears to run. The debit commits, the credit fails, and the ledger is out of balance with no error visible anywhere.
+
+Fix it by moving the transactional method onto a different bean, so every call crosses the proxy:
 
 ```java
 // GOOD — the transactional method lives on a different bean, so the proxy applies
@@ -1532,6 +1549,8 @@ public class TransferBatchService {
     }
 }
 ```
+
+Self-injection (a bean injecting its own proxy) and `TransactionTemplate` also work, but both hide the boundary. Split the bean.
 
 The same trap applies to `@Async`, `@Cacheable`, `@Retryable`, and `@PreAuthorize`. All are proxy-based. All are silently inert on a self-invocation.
 
@@ -1902,7 +1921,28 @@ public Clock clock() {
 ---
 ## 12. Concurrency, Async and Scheduling
 
+Four separate concerns, often confused with each other:
+
+```
+  12.1  How a request gets a thread                 (virtual threads)
+  12.2  How work runs off the request thread        (@Async)
+  12.3  How work runs on a timer, across instances  (@Scheduled + lock)
+  12.4  How two threads touching one account stay correct (locking)
+  12.5  How in-flight work survives a pod restart   (graceful shutdown)
+```
+
 ### 12.1 Virtual Threads
+
+A **platform thread** is an operating-system thread: roughly 1 MB of stack, and a few thousand is the practical ceiling. When a request blocks on a JDBC call, that thread sits idle but still occupies its slot. A **virtual thread** is scheduled by the JVM instead: when it blocks, the JVM parks it and hands the underlying platform thread (its *carrier*) to another virtual thread.
+
+```
+  Platform threads                        Virtual threads (Java 21)
+
+  200 threads = 200 requests in flight    100,000 virtual threads on ~8 carriers
+  request blocks on JDBC                  request blocks on JDBC
+    └─ thread idle, slot wasted             └─ virtual thread parked,
+                                               carrier runs another request
+```
 
 Java 21 virtual threads are enabled for request handling:
 
@@ -1915,22 +1955,64 @@ spring:
 
 This makes blocking I/O cheap: a request blocked on a database call no longer pins a platform thread. It does **not** make the database connection pool larger. The pool remains the real concurrency limit, and with virtual threads it is reached faster, so `connection-timeout` and pool-wait metrics matter more, not less.
 
-**`synchronized` blocks pin a virtual thread to its carrier thread.** Replace `synchronized` with `ReentrantLock` in any code path that runs on a virtual thread and can block while holding the lock.
+```
+  10,000 virtual threads ──▶ HikariCP (20 connections) ──▶ PostgreSQL
+                                      ▲
+                         the real ceiling — unchanged by virtual threads
+```
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 3000     # Fail fast when the pool is the bottleneck,
+                                   # rather than queueing 10,000 waiters silently
+```
+
+**`synchronized` blocks pin a virtual thread to its carrier thread.** A pinned carrier cannot run any other virtual thread until the block exits, so a handful of pinned carriers collapses throughput for everyone. Replace `synchronized` with `ReentrantLock` in any code path that runs on a virtual thread and can block while holding the lock.
 
 ```java
 // BAD on a virtual thread — pins the carrier for the duration of the I/O
 private final Object lock = new Object();
 synchronized (lock) { repository.save(entry); }
 
-// GOOD
+// GOOD — ReentrantLock releases the carrier while the virtual thread waits
 private final ReentrantLock lock = new ReentrantLock();
 lock.lock();
 try { repository.save(entry); } finally { lock.unlock(); }
 ```
 
-**`ThreadLocal` is not free on virtual threads.** With a thread per request rather than a pooled thread, a `ThreadLocal` holding a large object multiplies. MDC is fine; caches are not.
+**`ThreadLocal` is not free on virtual threads.** With a thread per request rather than a pooled thread, a `ThreadLocal` holding a large object multiplies: what cost 200 copies on a platform-thread pool now costs one copy per in-flight request. Mapped Diagnostic Context (MDC) is fine; caches and buffers are not.
+
+```java
+// BAD — 2 MB per in-flight request; 10,000 concurrent requests is 20 GB
+private static final ThreadLocal<byte[]> SCRATCH =
+    ThreadLocal.withInitial(() -> new byte[2 * 1024 * 1024]);
+
+// BAD — a per-thread cache on a per-request thread is never reused;
+//       it is rebuilt and discarded on every single request
+private static final ThreadLocal<Map<String, ExchangeRate>> RATE_CACHE =
+    ThreadLocal.withInitial(HashMap::new);
+
+// GOOD — one shared, bounded cache for the whole application
+private final Cache<String, ExchangeRate> rateCache =
+    Caffeine.newBuilder().maximumSize(1_000).expireAfterWrite(Duration.ofMinutes(5)).build();
+
+// GOOD — MDC holds a few short strings per request; that is what ThreadLocal is for
+MDC.put("correlationId", correlationId);
+```
 
 ### 12.2 Async Execution
+
+`@Async` makes the caller return immediately while the annotated method runs on a separate thread taken from an executor. Like `@Transactional`, it is proxy-based, so the self-invocation trap in [§10.2](#102-the-self-invocation-trap) applies here too: a call from inside the same bean runs synchronously with no warning.
+
+```
+  Caller ──▶ notificationService.send(...)  ──▶ returns immediately
+                        │
+                        └──▶ queued on notificationExecutor ──▶ runs later,
+                                                                 on another thread
+```
 
 `@Async` requires an explicitly configured executor. The Spring default (`SimpleAsyncTaskExecutor`) creates an unbounded number of threads, which under load becomes an out-of-memory failure.
 
@@ -1962,13 +2044,97 @@ public void sendTransferNotification(NotificationCommand command) { ... }
 
 Rules:
 
-- **Never `@Async` on a money-moving operation.** Asynchronous work has no transaction, no caller to report failure to, and no guarantee of execution. Money movement is synchronous and transactional; the *notification about* it is asynchronous.
-- **`@Async` and `@Transactional` do not compose.** The async method runs on a different thread; the caller's transaction is not propagated. An `@Async @Transactional` method starts its own transaction, which commits or rolls back independently of the caller — usually not what the author intended.
-- **An `@Async void` method's exceptions vanish.** Configure an `AsyncUncaughtExceptionHandler`, or return `CompletableFuture` and handle the failure.
-- **Queue capacity is always bounded**, and the rejection policy is explicit. `CallerRunsPolicy` applies natural backpressure; a silent `DiscardPolicy` on anything that matters is prohibited.
-- **MDC does not propagate across threads.** Use a `TaskDecorator` to copy the correlation id, or the async work is untraceable.
+**Never `@Async` on a money-moving operation.** Asynchronous work has no transaction, no caller to report failure to, and no guarantee of execution. Money movement is synchronous and transactional; the *notification about* it is asynchronous.
 
 ```java
+// BAD — the caller gets a success response for a transfer that may never happen,
+//       and if the executor queue is full it is dropped with nobody to tell
+@Async("notificationExecutor")
+public void transfer(TransferCommand command) {
+    ledgerService.post(command);
+}
+
+// GOOD — the money moves inside the transaction; only the notification is deferred
+@Transactional
+public TransferResult transfer(TransferCommand command) {
+    TransferResult result = ledgerService.post(command);
+    eventPublisher.publishEvent(new TransferCompleted(result.transferId()));
+    return result;
+}
+
+@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)  // See §13.5
+@Async("notificationExecutor")
+public void onTransferCompleted(TransferCompleted event) {
+    notificationGateway.send(event);
+}
+```
+
+**`@Async` and `@Transactional` do not compose.** The async method runs on a different thread; the caller's transaction is not propagated. An `@Async @Transactional` method starts its own transaction, which commits or rolls back independently of the caller — usually not what the author intended.
+
+```java
+// BAD — the audit row commits on its own thread even when the transfer rolls back,
+//       and it may read the account before the caller's transaction has committed
+@Async("auditExecutor")
+@Transactional
+public void recordTransferAudit(UUID transferId) { ... }
+
+// GOOD — same thread, same transaction, atomic with the business write
+@Transactional(propagation = Propagation.REQUIRES_NEW)   // See §10.3
+public void recordTransferAudit(UUID transferId) { ... }
+```
+
+**An `@Async void` method's exceptions vanish.** With no caller waiting, nothing observes the throw. Configure an `AsyncUncaughtExceptionHandler`, or return `CompletableFuture` and handle the failure.
+
+```java
+// BAD — the gateway times out, the exception is swallowed, no log, no metric
+@Async("notificationExecutor")
+public void sendTransferNotification(NotificationCommand command) {
+    notificationGateway.send(command);       // throws — and nobody ever knows
+}
+
+// GOOD (option 1) — the caller can observe the failure
+@Async("notificationExecutor")
+public CompletableFuture<Void> sendTransferNotification(NotificationCommand command) {
+    return CompletableFuture.runAsync(() -> notificationGateway.send(command));
+}
+
+// GOOD (option 2) — a global handler for every @Async void method
+@Configuration
+@EnableAsync
+public class AsyncConfig implements AsyncConfigurer {
+    @Override
+    public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {
+        return (ex, method, params) ->
+            log.error("async_failed method={} args={}", method.getName(), params, ex);
+    }
+}
+```
+
+**Queue capacity is always bounded**, and the rejection policy is explicit. `CallerRunsPolicy` applies natural backpressure; a silent `DiscardPolicy` on anything that matters is prohibited.
+
+```java
+// BAD — the default queue is effectively unbounded; a slow downstream turns
+//       a backlog into heap exhaustion, and the pod dies holding the work
+executor.setQueueCapacity(Integer.MAX_VALUE);
+
+// BAD — rejected notifications disappear with no log and no metric
+executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+
+// GOOD — bounded, and overflow slows the caller instead of dropping work
+executor.setQueueCapacity(500);
+executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+```
+
+**MDC does not propagate across threads.** Use a `TaskDecorator` to copy the correlation id, or the async work is untraceable.
+
+```
+// Without a decorator:
+  request thread     log.info("transfer_completed")   correlationId=abc123
+  notification-3     log.error("notification_failed") correlationId=            <- untraceable
+```
+
+```java
+// GOOD — copy the MDC into the task, and clear it when the task ends
 executor.setTaskDecorator(runnable -> {
     Map<String, String> context = MDC.getCopyOfContextMap();
     return () -> {
@@ -1979,6 +2145,21 @@ executor.setTaskDecorator(runnable -> {
 ```
 
 ### 12.3 Scheduling
+
+`@Scheduled` runs a method on a timer **in every instance of the service**. Four pods means four executions of the same job at the same second, unless a shared lock stops them.
+
+```
+  23:00 UTC
+    pod-1 ──▶ accrueDailyInterest()  ─┐
+    pod-2 ──▶ accrueDailyInterest()  ─┤  no lock  ──▶ interest posted 4 times
+    pod-3 ──▶ accrueDailyInterest()  ─┤
+    pod-4 ──▶ accrueDailyInterest()  ─┘
+
+    pod-1 ──▶ acquires shedlock row ──▶ runs
+    pod-2 ──▶ lock held ──▶ skips        with lock ──▶ posted once
+    pod-3 ──▶ lock held ──▶ skips
+    pod-4 ──▶ lock held ──▶ skips
+```
 
 ```java
 @Configuration
@@ -2009,12 +2190,58 @@ public void accrueDailyInterest() { ... }
 - `lockAtLeastFor` prevents a fast job from running twice due to clock skew between instances.
 - `lockAtMostFor` releases the lock if an instance dies mid-job. Set it above the worst observed runtime, or the job will double-run during a slow night.
 - `usingDbTime()` makes the lock depend on the database clock, not on each instance's clock.
-- **A scheduled job must be idempotent regardless of the lock.** Locks reduce the probability of a double run; they do not eliminate it. The job itself must be safe to re-run.
-- **Fixed rate is prohibited for jobs that can overlap.** `fixedRate` starts the next run on schedule even if the previous is still going. Use `fixedDelay` or cron.
+
+**A scheduled job must be idempotent regardless of the lock.** Locks reduce the probability of a double run; they do not eliminate it. The job itself must be safe to re-run.
+
+```java
+// BAD — a second run for the same day posts the interest again
+public void accrueDailyInterest() {
+    for (Account account : accountRepository.findAllActive()) {
+        ledgerService.postInterest(account, interestFor(account));
+    }
+}
+
+// GOOD — the accrual date is part of a unique key, so a re-run is a no-op
+//        CREATE UNIQUE INDEX ON interest_accrual (account_id, accrual_date);
+public void accrueDailyInterest() {
+    LocalDate accrualDate = LocalDate.now(clock);
+    for (Account account : accountRepository.findAllActive()) {
+        if (accrualRepository.existsByAccountIdAndAccrualDate(account.id(), accrualDate)) {
+            continue;                       // Already accrued for this date
+        }
+        ledgerService.postInterest(account, interestFor(account), accrualDate);
+    }
+}
+```
+
+**Fixed rate is prohibited for jobs that can overlap.** `fixedRate` starts the next run on schedule even if the previous is still going. Use `fixedDelay` or cron.
+
+```java
+// BAD — the settlement sweep takes 90s; a new one starts every 60s and they pile up
+@Scheduled(fixedRate = 60_000)
+public void sweepPendingSettlements() { ... }
+
+// GOOD — the next run starts 60s after the previous one finishes
+@Scheduled(fixedDelay = 60_000)
+public void sweepPendingSettlements() { ... }
+```
 
 ### 12.4 Locking for Balance Mutation
 
 Two concurrent transfers from the same account must not both pass the balance check. Optimistic locking ([§9.5](#95-optimistic-locking-is-mandatory-on-mutable-financial-state)) detects the conflict after the fact and forces a retry. For a hot account, pessimistic locking is cheaper than a retry storm:
+
+```
+  Balance 100. Two concurrent debits of 80, no lock:
+
+    tx-A  read balance=100 ──▶ check 80 ≤ 100 OK ──▶ write 20
+    tx-B  read balance=100 ──▶ check 80 ≤ 100 OK ──▶ write 20
+                                                     └─ account overdrawn by 60
+
+  With SELECT ... FOR UPDATE:
+
+    tx-A  lock row ──▶ read 100 ──▶ write 20 ──▶ commit, lock released
+    tx-B  ......... waits ........ ──▶ read 20 ──▶ 80 > 20 ──▶ InsufficientFunds
+```
 
 ```java
 @Transactional(timeout = 5)
@@ -2031,9 +2258,25 @@ public void debit(UUID accountId, Money amount) {
 }
 ```
 
-**Lock ordering is fixed and global.** A transfer locks two accounts; if two concurrent transfers lock them in opposite orders, they deadlock. Always acquire locks in ascending account-id order:
+**Lock ordering is fixed and global.** A transfer locks two accounts; if two concurrent transfers lock them in opposite orders, they deadlock:
+
+```
+  Transfer 1: A ──▶ B          Transfer 2: B ──▶ A
+
+    tx-1 locks A ──▶ waits for B
+    tx-2 locks B ──▶ waits for A
+                     └─ neither can proceed; the database kills one after its
+                        deadlock_timeout, and that transfer fails
+```
+
+Always acquire locks in ascending account-id order, so both transactions queue on the same row first and no cycle can form:
 
 ```java
+// BAD — lock order follows the direction of the transfer, so it varies per request
+accountRepository.findByIdForUpdate(debitAccountId);
+accountRepository.findByIdForUpdate(creditAccountId);
+
+// GOOD — a global, deterministic order; every transaction agrees on who waits
 List<UUID> ordered = Stream.of(debitAccountId, creditAccountId).sorted().toList();
 ordered.forEach(accountRepository::findByIdForUpdate);
 ```
@@ -2041,6 +2284,17 @@ ordered.forEach(accountRepository::findByIdForUpdate);
 Hold the lock for the shortest possible time, and never across a network call ([§10.6](#106-what-must-never-happen-inside-a-transaction)).
 
 ### 12.5 Shutdown
+
+A pod is killed constantly: deploys, scaling, node drains. Without graceful shutdown the JVM dies mid-request, and a transfer that has debited but not yet credited leaves the ledger unbalanced.
+
+```
+  SIGTERM
+    │
+    ├─ stop accepting new requests        (load balancer drains)
+    ├─ let in-flight requests finish      (up to timeout-per-shutdown-phase)
+    ├─ let executor queues drain          (setWaitForTasksToCompleteOnShutdown)
+    └─ close the connection pool, exit
+```
 
 ```yaml
 server:
@@ -2051,6 +2305,17 @@ spring:
 ```
 
 A pod that terminates mid-transfer must not leave a debit without a credit. Graceful shutdown stops accepting new requests, drains in-flight ones, and only then closes the pool. Executors declare `setWaitForTasksToCompleteOnShutdown(true)` so queued work is not silently dropped.
+
+```java
+// BAD — queued notifications are discarded the moment SIGTERM arrives
+executor.setWaitForTasksToCompleteOnShutdown(false);
+
+// GOOD — drain what is queued, bounded by a timeout below the pod's grace period
+executor.setWaitForTasksToCompleteOnShutdown(true);
+executor.setAwaitTerminationSeconds(30);
+```
+
+The Kubernetes `terminationGracePeriodSeconds` must exceed `timeout-per-shutdown-phase` plus the executor's `awaitTerminationSeconds`, or the pod is `SIGKILL`ed while still draining and the guarantee is void.
 
 ---
 
